@@ -1,15 +1,10 @@
 project(RGBMatrixRenderer)
 
 if (${BUILD_RASPBERRYPI})
+    find_library(RGB_LIBRARIES NAMES librgbmatrix.a REQUIRED)
+    find_path(RGB_INCDIR NAMES rgbmatrix/led-matrix.h REQUIRED)
 
-    set(RGB_LIB_DISTRIBUTION rpi-rgb-led-matrix)
-    set(RGB_INCDIR ${RGB_LIB_DISTRIBUTION}/include)
-    set(RGB_LIBDIR ${RGB_LIB_DISTRIBUTION}/lib)
-    set(RGB_LIBRARY_NAME rgbmatrix)
-
-    include_directories(${RGB_INCDIR})
-    link_directories(${RGB_LIBDIR})
-    set(RGB_LIBRARIES ${RGB_LIBRARY_NAME} rt m)
+    include_directories("${RGB_INCDIR}/rgbmatrix")
 
     set(SOURCE_FILES
             RGBMatrixRenderer.cpp
@@ -19,7 +14,11 @@ if (${BUILD_RASPBERRYPI})
     target_link_libraries(RGBMatrixRenderer PRIVATE renderer Imu ${RGB_LIBRARIES})
     target_include_directories(RGBMatrixRenderer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
-    add_custom_command(TARGET RGBMatrixRenderer PRE_LINK COMMAND "make" WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}/${RGB_LIB_DISTRIBUTION}/lib)
+    install(TARGETS RGBMatrixRenderer
+            LIBRARY
+            DESTINATION lib
+            COMPONENT RGBMatrixRenderer
+            )
 endif ()
 
 add_subdirectory(imu)

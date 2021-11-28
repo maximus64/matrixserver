@@ -12,8 +12,8 @@ target_include_directories(renderer PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOU
 #add_subdirectory(TestRenderer)
 add_subdirectory(SimulatorRenderer)
 if(UNIX AND NOT APPLE) # don't try to build this renderer on MacOS
-	#add_subdirectory(RGBMatrixRenderer)
-	add_subdirectory(FPGARenderer)
+	add_subdirectory(RGBMatrixRenderer)
+	#add_subdirectory(FPGARenderer)
 endif()
 
 set_target_properties(common PROPERTIES PUBLIC_HEADER "IRenderer.h")

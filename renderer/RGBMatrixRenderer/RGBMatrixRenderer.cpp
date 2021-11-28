@@ -2,7 +2,6 @@
 
 #include "led-matrix.h"
 #include "threaded-canvas-manipulator.h"
-#include "transformer.h"
 
 #include <chrono>
 
@@ -24,18 +23,18 @@ void RGBMatrixRenderer::init(std::vector<std::shared_ptr<Screen>> initScreens) {
 
     rgb_matrix::RGBMatrix::Options RGBmatrixOptions;
     rgb_matrix::RuntimeOptions RGBruntimeOptions;
-    RGBmatrixOptions.hardware_mapping = "regular";
+    RGBmatrixOptions.hardware_mapping = "cubie-hat";
     RGBmatrixOptions.rows = 64;
-    RGBmatrixOptions.cols = 64; //todo: should be tested -> tested now, no difference
+    RGBmatrixOptions.cols = 64;
     RGBmatrixOptions.chain_length = 3;
-//    RGBmatrixOptions.chain_length = 6;
     RGBmatrixOptions.parallel = 2;
     RGBmatrixOptions.show_refresh_rate = false;
-    RGBmatrixOptions.pwm_lsb_nanoseconds = 150;
+    RGBmatrixOptions.pwm_lsb_nanoseconds = 130;
     RGBmatrixOptions.brightness = globalBrightness;
     RGBmatrixOptions.led_rgb_sequence = "rgb";
-    RGBruntimeOptions.gpio_slowdown = 2;
+    RGBruntimeOptions.gpio_slowdown = 3;
     RGBruntimeOptions.drop_privileges = -1;
+    RGBruntimeOptions.do_gpio_init = true;
 
     rgbMatrix = CreateMatrixFromOptions(RGBmatrixOptions, RGBruntimeOptions);
 
@@ -93,6 +92,7 @@ void RGBMatrixRenderer::render() {
                 }
                 break;
             default:
+                throw std::invalid_argument("Invalid Rotation value");
                 break;
         }
     }

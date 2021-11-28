@@ -8,6 +8,11 @@ set(Boost_FIND_QUIETLY ON) #FINALLY!!!
 
 set(Boost_USE_MULTITHREADED TRUE) # fix warnings from newer boost versions
 
+if (BUILD_CUBIE)
+    set(BUILD_RASPBERRYPI true)
+    message("Build on LED Cubie is enabled")
+endif ()
+
 if (EXISTS "/boot/LICENCE.broadcom") # I expect this file to be only found on an Raspian distribution
     set(BUILD_RASPBERRYPI true)
     message("Build on Raspberry Pi is enabled")
@@ -31,11 +36,15 @@ add_subdirectory(renderer)
 add_subdirectory(server)
 add_subdirectory(application)
 if (BUILD_RASPBERRYPI)
+if (NOT BUILD_CUBIE)
 add_subdirectory(MainMenu)
 add_subdirectory(server_FPGA_RPISPI)
 endif()
+endif()
 #add_subdirectory(server_testapp)
-#add_subdirectory(server_RGBMatrix)
+if (BUILD_CUBIE)
+add_subdirectory(server_RGBMatrix)
+endif()
 #add_subdirectory(server_FPGA)
 add_subdirectory(server_simulator)
 #add_subdirectory(tests)

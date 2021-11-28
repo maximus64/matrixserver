@@ -1,5 +1,11 @@
 project(application)
 
+if (BUILD_CUBIE)
+add_definitions( -DX_DISPLAY_MISSING=1 )
+endif()
+
+include_directories(${CMAKE_SOURCE_DIR}/common)
+
 find_package(Boost 1.58.0 REQUIRED COMPONENTS thread log system)
 include_directories(${Boost_INCLUDE_DIRS})
 
@@ -19,7 +25,7 @@ set(SOURCE_FILES
         CubeApplication.cpp
         Image.cpp)
 
-if (BUILD_RASPBERRYPI)
+if (BUILD_RASPBERRYPI AND NOT BUILD_CUBIE)
 	set(SOURCE_FILES
         	Mpu6050.cpp
         	Mpu6050.h ADS1000.cpp ADS1000.h)
@@ -28,15 +34,14 @@ endif ()
 
 add_library(matrixapplication SHARED ${SOURCE_FILES} MatrixApplication.cpp)
 
+if (NOT BUILD_CUBIE)
 target_link_libraries(matrixapplication common renderer 
 	$<$<PLATFORM_ID:Linux>:FPGARenderer>)
+endif ()
 target_link_libraries(matrixapplication
         ${Boost_LIBRARIES} Imlib2
         $<$<PLATFORM_ID:Linux>:rt>
          )
-if (BUILD_RASPBERRYPI)
-	target_link_libraries(matrixapplication wiringPi)
-endif ()
 
 target_include_directories(matrixapplication PUBLIC $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}> $<INSTALL_INTERFACE:include/matrixapplication>)
 target_include_directories(matrixapplication PUBLIC $<BUILD_INTERFACE:${EIGEN3_INCLUDE_DIRS}> $<INSTALL_INTERFACE:${EIGEN3_INCLUDE_DIRS}>)

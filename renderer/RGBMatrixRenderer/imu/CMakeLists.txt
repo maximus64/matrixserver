@@ -9,3 +9,9 @@ add_library(Imu SHARED ${SOURCE_FILES})
 target_include_directories(Imu PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 target_link_libraries(Imu PRIVATE ${Boost_LIBRARIES})
 #    target_include_directories(RGBMatrixRenderer PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+
+install(TARGETS Imu
+        LIBRARY
+        DESTINATION lib
+        COMPONENT Imu
+        )
