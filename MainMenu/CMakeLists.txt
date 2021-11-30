@@ -1,13 +1,12 @@
 project(MainMenu)
 
-find_package(matrixapplication REQUIRED)
-
 set(MAINSRC
         main.cpp
         mainmenu.cpp)
 
 set(MAINLIBS
-        matrixapplication::matrixapplication
+        matrixapplication
+        common
         stdc++fs
         )
 

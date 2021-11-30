@@ -17,7 +17,6 @@ private:
     void internalLoop();
     boost::thread * thread_;
     boost::mutex threadLock_;
-    int fd;
 
     Eigen::Vector3f acceleration;
 };

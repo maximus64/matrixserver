@@ -2,30 +2,24 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <wiringPi.h>
-#include <wiringPiI2C.h>
 #include <iostream>
+#include <fstream>
 #include <unistd.h>
 #include <byteswap.h>
 
 #include <cmath>
 #define PI 3.14159265
 
+#define MPU_SYSFS_PATH "/sys/bus/iio/devices/iio:device0"
+#define MPU_ACCEL_X_PATH MPU_SYSFS_PATH "/in_accel_x_raw"
+#define MPU_ACCEL_Y_PATH MPU_SYSFS_PATH "/in_accel_y_raw"
+#define MPU_ACCEL_Z_PATH MPU_SYSFS_PATH "/in_accel_z_raw"
+
 using namespace Eigen;
 
+namespace {
 
-#define MPU6050_GYRO_XOUT_H        0x43   // R
-#define MPU6050_GYRO_YOUT_H        0x45   // R
-#define MPU6050_GYRO_ZOUT_H        0x47   // R
-
-#define MPU6050_ACCEL_XOUT_H       0x3B   // R
-#define MPU6050_ACCEL_YOUT_H       0x3D   // R
-#define MPU6050_ACCEL_ZOUT_H       0x3F   // R
-
-#define MPU6050_PWR_MGMT_1         0x6B   // R/W
-#define MPU6050_I2C_ADDRESS        0x68   // I2C
-
-Vector2f RotateVector2d(Vector2f input, double degrees)
+static Vector2f RotateVector2d(Vector2f input, double degrees)
 {
     Vector2f result;
     double radians = degrees * PI/180;
@@ -33,14 +27,6 @@ Vector2f RotateVector2d(Vector2f input, double degrees)
     result[1] = input[0] * sin(radians) + input[1] * cos(radians);
     return result;
 }
-
-int read_word_2c(int fd, char reg){
-    uint16_t value = wiringPiI2CReadReg16(fd, reg);
-    value = __bswap_16(value);
-    if (value >= 0x8000)
-        return -((65535 - value) + 1);
-    else
-        return value;
 }
 
 Mpu6050::Mpu6050(){
@@ -59,14 +45,7 @@ Vector3i Mpu6050::getCubeAccIntersect(){
 
 void Mpu6050::init()
 {
-    fd = wiringPiI2CSetup(MPU6050_I2C_ADDRESS);
-    if (fd == -1)
-        return;
-
-    wiringPiI2CReadReg8 (fd, MPU6050_PWR_MGMT_1);
-    wiringPiI2CWriteReg16(fd, MPU6050_PWR_MGMT_1, 0);
-
-    startRefreshThread();
+   startRefreshThread();
 }
 
 void Mpu6050::startRefreshThread()
@@ -75,26 +54,32 @@ void Mpu6050::startRefreshThread()
 }
 
 void Mpu6050::internalLoop(){
-    int loopcount = 0;
+    std::ifstream ifs_ax (MPU_ACCEL_X_PATH, std::ifstream::in);
+    std::ifstream ifs_ay (MPU_ACCEL_Y_PATH, std::ifstream::in);
+    std::ifstream ifs_az (MPU_ACCEL_Z_PATH, std::ifstream::in);
+
+    if (!ifs_ax.good() || !ifs_ay.good() || !ifs_az.good())
+        throw std::runtime_error("Cannot open sysfs interface for MPU6050");
+
     while(1){
-        float gx,gy,gz,ax,ay,az;
+        float ax,ay,az;
 
-        gx = read_word_2c(fd, MPU6050_GYRO_XOUT_H) / 131.0f;
-        gy = read_word_2c(fd, MPU6050_GYRO_YOUT_H) / 131.0f;
-        gz = read_word_2c(fd, MPU6050_GYRO_ZOUT_H) / 131.0f;
+        std::string str_ax, str_ay, str_az;
+        ifs_ax >> str_ax;
+        ifs_ay >> str_ay;
+        ifs_az >> str_az;
 
-        ax = read_word_2c(fd, MPU6050_ACCEL_XOUT_H) / 16384.0f;
-        ay = read_word_2c(fd, MPU6050_ACCEL_YOUT_H) / 16384.0f;
-        az = read_word_2c(fd, MPU6050_ACCEL_ZOUT_H) / 16384.0f;
+        ifs_ax.seekg (0, ifs_ax.beg);
+        ifs_ay.seekg (0, ifs_ay.beg);
+        ifs_az.seekg (0, ifs_az.beg);
 
-        Vector2f temp;
-        temp[0] = ax;
-        temp[1] = az;
-        auto rotated = RotateVector2d(temp, 45.0f);
+        ax = std::stoi(str_ax) / 16384.0f;
+        ay = std::stoi(str_ay) / 16384.0f;
+        az = std::stoi(str_az) / 16384.0f;
 
-        acceleration[0] = rotated[0];
-        acceleration[1] = rotated[1];
-        acceleration[2] = ay;
+        acceleration[0] = -ay;
+        acceleration[1] = -az;
+        acceleration[2] = -ax;
 
         usleep(10000);
     }

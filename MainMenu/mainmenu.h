@@ -1,10 +1,10 @@
 #ifndef SNAKE_PIXELFLOW_H
 #define SNAKE_PIXELFLOW_H
 
-#include "CubeApplication.h"
+#include <CubeApplication.h>
 
 #include "Joystick.h"
-#include "ADS1000.h"
+#include "BattSensor.h"
 
 #include <experimental/filesystem>
 
@@ -23,7 +23,7 @@ private:
     std::vector<AppListItem> appList;
     std::vector<AppListItem> settingsList;
     std::string searchDirectory;
-    ADS1000 adcBattery;
+    BattSensor adcBattery;
 };
 
 class MainMenu::AppListItem {

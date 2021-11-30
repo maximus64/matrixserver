@@ -22,7 +22,7 @@ enum MenuState {
 MenuState menuState = applist;
 
 MainMenu::MainMenu() : CubeApplication(40), joystickmngr(8) {
-    searchDirectory = "/home/pi/APPS";
+    searchDirectory = "/opt/ledcube/apps";
     for (const auto &p : std::experimental::filesystem::directory_iterator(searchDirectory)) {
         //if(p.path().extension() == "cube"){
         appList.push_back(AppListItem(std::string(p.path().filename()), std::string(p.path())));

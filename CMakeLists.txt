@@ -11,6 +11,7 @@ set(Boost_USE_MULTITHREADED TRUE) # fix warnings from newer boost versions
 if (BUILD_CUBIE)
     set(BUILD_RASPBERRYPI true)
     message("Build on LED Cubie is enabled")
+    add_definitions( -DX_DISPLAY_MISSING=1 )
 endif ()
 
 if (EXISTS "/boot/LICENCE.broadcom") # I expect this file to be only found on an Raspian distribution
@@ -36,8 +37,8 @@ add_subdirectory(renderer)
 add_subdirectory(server)
 add_subdirectory(application)
 if (BUILD_RASPBERRYPI)
-if (NOT BUILD_CUBIE)
 add_subdirectory(MainMenu)
+if (NOT BUILD_CUBIE)
 add_subdirectory(server_FPGA_RPISPI)
 endif()
 endif()

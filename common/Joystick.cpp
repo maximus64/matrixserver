@@ -84,6 +84,8 @@ bool Joystick::isFound()
     return (stat (devicePath_.c_str(), &buffer) == 0);
 }
 
+#define JS_AXIS_THRESHOLD 0.5f
+
 void Joystick::refresh()
 {
     Joystick::Event event;
@@ -96,9 +98,18 @@ void Joystick::refresh()
                 button_[event.number] = (bool)event.value;
             }else if (event.isAxis()){
                 auto tempVal = (float)event.value / INT16_MAX;
-                if(axis_[event.number] == 0 && tempVal != 0)
-                    axisPress_[event.number] = tempVal;
+                float press = 0.0f;
+
+                if (tempVal > JS_AXIS_THRESHOLD)
+                    press = 1.0f;
+                else if (tempVal < -JS_AXIS_THRESHOLD)
+                    press = -1.0f;
+
+                if (axisPressLast_[event.number] == 0 && press != 0)
+                    axisPress_[event.number] = press;
+
                 axis_[event.number] = tempVal;
+                axisPressLast_[event.number] = press;
             }
         }
     }

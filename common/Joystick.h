@@ -68,6 +68,7 @@ private:
     std::array<bool, MAXBUTTONAXISCOUNT> buttonPress_;
     std::array<float, MAXBUTTONAXISCOUNT> axis_;
     std::array<float, MAXBUTTONAXISCOUNT> axisPress_;
+    std::array<float, MAXBUTTONAXISCOUNT> axisPressLast_;
 };
 
 class Joystick::Event {

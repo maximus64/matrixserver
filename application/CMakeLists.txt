@@ -1,9 +1,5 @@
 project(application)
 
-if (BUILD_CUBIE)
-add_definitions( -DX_DISPLAY_MISSING=1 )
-endif()
-
 include_directories(${CMAKE_SOURCE_DIR}/common)
 
 find_package(Boost 1.58.0 REQUIRED COMPONENTS thread log system)
@@ -21,16 +17,16 @@ ENDIF()
 #set(CMAKE_CXX_FLAGS "-fPIC -I/opt/X11/include")
 
 
-set(SOURCE_FILES
-        CubeApplication.cpp
-        Image.cpp)
+set(SOURCE_FILES CubeApplication.cpp Image.cpp)
 
-if (BUILD_RASPBERRYPI AND NOT BUILD_CUBIE)
-	set(SOURCE_FILES
-        	Mpu6050.cpp
-        	Mpu6050.h ADS1000.cpp ADS1000.h)
-endif ()
-
+if (BUILD_RASPBERRYPI)
+	set(SOURCE_FILES ${SOURCE_FILES} Mpu6050.cpp Mpu6050.h)
+if (BUILD_CUBIE)
+        set(SOURCE_FILES ${SOURCE_FILES} INA219.cpp)
+else() # BUILD_CUBIE
+        set(SOURCE_FILES ${SOURCE_FILES} ADS1000.cpp)
+endif() # BUILD_CUBIE
+endif () # BUILD_RASPBERRYPI
 
 add_library(matrixapplication SHARED ${SOURCE_FILES} MatrixApplication.cpp)
 
@@ -47,7 +43,7 @@ target_include_directories(matrixapplication PUBLIC $<BUILD_INTERFACE:${CMAKE_CU
 target_include_directories(matrixapplication PUBLIC $<BUILD_INTERFACE:${EIGEN3_INCLUDE_DIRS}> $<INSTALL_INTERFACE:${EIGEN3_INCLUDE_DIRS}>)
 
 target_compile_definitions(matrixapplication PUBLIC BOOST_LOG_DYN_LINK)
-set_target_properties(matrixapplication PROPERTIES PUBLIC_HEADER "CubeApplication.h;Font6px.h;Mpu6050.h;ADS1000.h;Image.h;MatrixApplication.h")
+set_target_properties(matrixapplication PROPERTIES PUBLIC_HEADER "CubeApplication.h;Font6px.h;Mpu6050.h;BattSensor.h;Image.h;MatrixApplication.h")
 
 install(TARGETS matrixapplication
         EXPORT matrixapplication-targets

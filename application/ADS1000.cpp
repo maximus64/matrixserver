@@ -1,4 +1,4 @@
-#include "ADS1000.h"
+#include "BattSensor.h"
 
 #include <stdio.h>
 #include <stdint.h>
@@ -18,44 +18,71 @@
 #define ADS1000_I2C_ADDRESS        0x48   // I2C
 
 
-int ADS1000::read_word_2c(int fd, char reg){
-    uint16_t value = wiringPiI2CReadReg16(fd, reg);
-    value = __bswap_16(value);
-    if (value >= 0x8000)
-        return -((65535 - value) + 1);
-    else
-        return value;
-}
-
-ADS1000::ADS1000(){
-    init();
-}
-
-void ADS1000::init()
-{
-    fd = wiringPiI2CSetup(ADS1000_I2C_ADDRESS);
-    if (fd == -1)
-        return;
-
-    int readval = read_word_2c(fd, 0x00); // do one dummy read
-
-    startRefreshThread();
-}
-
-void ADS1000::startRefreshThread()
-{
-    thread_ = new boost::thread(&ADS1000::internalLoop, this);
-}
-
-void ADS1000::internalLoop(){
-    int loopcount = 0;
-    while(1){
-        int readval = read_word_2c(fd, 0x00);
-        voltage = (0.0106f * readval) - 0.0055f;
-        usleep(100000); //10fps
+class BattSensor::Impl {
+public:
+    Impl() {
+        init();
     }
+
+    void init()
+    {
+        fd = wiringPiI2CSetup(ADS1000_I2C_ADDRESS);
+        if (fd == -1)
+            return;
+
+        int readval = read_word_2c(fd, 0x00); // do one dummy read
+
+        startRefreshThread();
+    }
+
+    float getVoltage() {
+        return voltage;
+    }
+
+private:
+    void startRefreshThread()
+    {
+        thread_ = new boost::thread(&Impl::internalLoop, this);
+    }
+
+    void internalLoop() {
+        int loopcount = 0;
+        while(1){
+            int readval = read_word_2c(fd, 0x00);
+            voltage = (0.0106f * readval) - 0.0055f;
+            usleep(100000); //10fps
+        }
+    }
+
+    int read_word_2c(int fd, char reg) {
+        uint16_t value = wiringPiI2CReadReg16(fd, reg);
+        value = __bswap_16(value);
+        if (value >= 0x8000)
+            return -((65535 - value) + 1);
+        else
+            return value;
+    }
+    boost::thread * thread_;
+    boost::mutex threadLock_;
+    int fd;
+
+    float voltage;
+};
+
+BattSensor::BattSensor()
+    : pimpl(new Impl())
+{
 }
 
-float ADS1000::getVoltage(){
-    return voltage;
+BattSensor::~BattSensor()
+{
+}
+
+float BattSensor::getVoltage() {
+    return pimpl->getVoltage();
+}
+
+float BattSensor::getCurrent() {
+    /* Doesn't support */
+    return 0.0f;
 }
