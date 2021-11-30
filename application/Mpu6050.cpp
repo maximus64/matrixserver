@@ -77,9 +77,14 @@ void Mpu6050::internalLoop(){
         ay = std::stoi(str_ay) / 16384.0f;
         az = std::stoi(str_az) / 16384.0f;
 
-        acceleration[0] = -ay;
+        Vector2f temp;
+        temp[0] = ay;
+        temp[1] = -ax;
+        auto rotated = RotateVector2d(temp, -4.9f);
+
+        acceleration[0] = -rotated[0];
         acceleration[1] = -az;
-        acceleration[2] = -ax;
+        acceleration[2] = rotated[1];
 
         usleep(10000);
     }
