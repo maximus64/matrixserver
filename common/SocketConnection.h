@@ -31,8 +31,11 @@ public:
 
     void setDead(bool sDead);
 
+    void close();
+
 private:
     void doRead();
+    void doWrite(const std::string sendBuffer);
 
     void handleWrite(const boost::system::error_code &error, size_t bytes_transferred,
                      const std::string & message_encoded);
@@ -41,7 +44,7 @@ private:
 
     boost::asio::io_service &io;
     boost::asio::generic::stream_protocol::socket socket;
-    std::mutex sendMutex;
+    boost::asio::io_service::strand send_strand;
     char recv_buffer[RECEIVE_BUFFER_SIZE];
     std::string message_buffer;
     Cobs cobsDecoder;

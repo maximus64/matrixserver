@@ -33,6 +33,8 @@ public:
     bool isDead();
 
     void setDead(bool sDead);
+
+    void close();
 private:
     void doRead();
 

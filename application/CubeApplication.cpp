@@ -82,6 +82,8 @@ Color CubeApplication::getPixel3D(int x, int y, int z) {
         return screens[4]->getPixel(x - 1, VIRTUALCUBEMAXINDEX - y - 1); //Screen 4: 3d_x = x; 3d_y = 63-y; 3d_z = 0;
     else if (z == VIRTUALCUBEMAXINDEX)
         return screens[5]->getPixel(x - 1, y - 1); //Screen 5: 3d_x = x; 3d_y = y; 3d_z = 63;
+    else
+        throw std::runtime_error("invalid cordinate");
 }
 
 bool CubeApplication::isActivePixel3D(Vector3i pos) {

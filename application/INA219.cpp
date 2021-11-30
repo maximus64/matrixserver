@@ -1,12 +1,9 @@
 #include "BattSensor.h"
 
-#include <stdio.h>
-#include <stdint.h>
 #include <iostream>
 #include <fstream>
-#include <unistd.h>
-#include <byteswap.h>
 #include <thread>
+#include <chrono>
 
 #define INA219_SYSFS_PATH "/sys/class/hwmon/hwmon1"
 #define INA219_V_PATH INA219_SYSFS_PATH "/in1_input"
@@ -14,8 +11,13 @@
 
 struct BattSensor::Impl {
 public:
-    Impl() {
+    Impl() : should_stop(false) {
         init();
+    }
+
+    ~Impl() {
+        should_stop = true;
+        thread_->join();
     }
 
     void init()
@@ -32,6 +34,8 @@ public:
     }
 
 private:
+    bool should_stop;
+
     void startRefreshThread()
     {
         thread_ = std::unique_ptr<std::thread> (
@@ -44,7 +48,7 @@ private:
         std::ifstream ifs_i (INA219_I_PATH, std::ifstream::in);
         std::ifstream ifs_v (INA219_V_PATH, std::ifstream::in);
 
-        while (1 ){
+        while (!should_stop) {
 
             ifs_i >> str_i;
             ifs_v >> str_v;
@@ -55,7 +59,7 @@ private:
             voltage = std::stoi(str_v) / 1000.0f;
             current = std::stoi(str_i) / 1000.0f;
 
-            usleep(100000); //10fps
+            std::this_thread::sleep_for (std::chrono::milliseconds(200));
         }
     }
 

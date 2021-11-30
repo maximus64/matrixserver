@@ -19,6 +19,8 @@ public:
     virtual bool isDead() = 0;
 
     virtual void setDead(bool sDead) = 0;
+
+    virtual void close() = 0;
 };
 
 #endif //MATRIXSERVER_UNIVERSALCONNECTION_H

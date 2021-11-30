@@ -3,7 +3,7 @@
 #include <boost/log/trivial.hpp>
 
 SocketConnection::SocketConnection(boost::asio::io_service &io_context) :
-        io(io_context), socket(io), cobsDecoder(RECEIVE_BUFFER_SIZE) {
+        io(io_context), socket(io), send_strand(io), cobsDecoder(RECEIVE_BUFFER_SIZE) {
     receiveCallback = NULL;
 }
 
@@ -61,13 +61,20 @@ void SocketConnection::sendMessage(std::shared_ptr<matrixserver::MatrixServerMes
     auto sendBuffer = Cobs::encode(message->SerializeAsString());
     BOOST_LOG_TRIVIAL(trace) << "[SOCK CON] Starting Write of " << sendBuffer.size() << " bytes - last byte: " << std::hex << (int)sendBuffer.back();
 
-    sendMutex.lock();
+
+    send_strand.post([this, sendBuffer] {
+        this->doWrite(sendBuffer);
+    });
+}
+
+void SocketConnection::doWrite(const std::string sendBuffer) {
     boost::asio::async_write(socket,
                              boost::asio::buffer(sendBuffer.data(), sendBuffer.size()),
-                             [this, sendBuffer](boost::system::error_code error, size_t bytes_transferred) {
-                                 sendMutex.unlock();
-                                 this->handleWrite(error, bytes_transferred, sendBuffer);
-                             });
+                             boost::asio::bind_executor(send_strand,
+                                [this, sendBuffer](boost::system::error_code error, size_t bytes_transferred) {
+                                    this->handleWrite(error, bytes_transferred, sendBuffer);
+                                })
+                            );
 }
 
 
@@ -114,4 +121,9 @@ SocketConnection::~SocketConnection() {
 
 void SocketConnection::setDead(bool sDead) {
     dead = sDead;
+}
+
+void SocketConnection::close() {
+    setDead(true);
+    getSocket().close();
 }

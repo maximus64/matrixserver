@@ -106,3 +106,8 @@ bool IpcConnection::connectToServer(std::string serverAddress) {
     return true;
 }
 
+void IpcConnection::close() {
+    setDead(true);
+    this->receiveMQ = NULL;
+    this->sendMQ = NULL;
+}

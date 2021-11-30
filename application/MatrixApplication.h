@@ -53,6 +53,10 @@ public:
 
     virtual bool loop() = 0;
 
+    bool isStopped() {
+        return stopped;
+    }
+
 protected:
     std::vector<std::shared_ptr<Screen>> screens;
 
@@ -69,6 +73,8 @@ private:
 
     void handleRequest(std::shared_ptr<UniversalConnection>, std::shared_ptr<matrixserver::MatrixServerMessage>);
 
+    bool stopped;
+
     int appId;
     int fps;
     float load;
@@ -83,7 +89,7 @@ private:
     boost::asio::io_service io_context;
     matrixserver::ServerConfig serverConfig;
 
-    std::mutex renderSyncMutex;
+    std::atomic<bool> renderSync;
 };
 
 

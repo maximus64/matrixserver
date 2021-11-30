@@ -1,12 +1,8 @@
 #include "Mpu6050.h"
 
-#include <stdio.h>
-#include <stdint.h>
 #include <iostream>
 #include <fstream>
-#include <unistd.h>
-#include <byteswap.h>
-
+#include <chrono>
 #include <cmath>
 #define PI 3.14159265
 
@@ -29,8 +25,13 @@ static Vector2f RotateVector2d(Vector2f input, double degrees)
 }
 }
 
-Mpu6050::Mpu6050(){
+Mpu6050::Mpu6050() : should_stop(false) {
     init();
+}
+
+Mpu6050::~Mpu6050() {
+    should_stop = true;
+    thread_->join();
 }
 
 Vector3i Mpu6050::getCubeAccIntersect(){
@@ -50,7 +51,9 @@ void Mpu6050::init()
 
 void Mpu6050::startRefreshThread()
 {
-    thread_ = new boost::thread(&Mpu6050::internalLoop, this);
+    thread_ = std::unique_ptr<std::thread> (
+        new std::thread(&Mpu6050::internalLoop, this)
+    );
 }
 
 void Mpu6050::internalLoop(){
@@ -61,7 +64,7 @@ void Mpu6050::internalLoop(){
     if (!ifs_ax.good() || !ifs_ay.good() || !ifs_az.good())
         throw std::runtime_error("Cannot open sysfs interface for MPU6050");
 
-    while(1){
+    while (!should_stop) {
         float ax,ay,az;
 
         std::string str_ax, str_ay, str_az;
@@ -86,7 +89,7 @@ void Mpu6050::internalLoop(){
         acceleration[1] = -az;
         acceleration[2] = rotated[1];
 
-        usleep(10000);
+        std::this_thread::sleep_for (std::chrono::milliseconds(200));
     }
 }
 

@@ -11,7 +11,8 @@ MatrixApplication::MatrixApplication(int fps, std::string setServerAddress, std:
         mainThread(),
         io_context(),
         serverAddress(setServerAddress),
-        serverPort(setServerPort) {
+        serverPort(setServerPort),
+        stopped(false) {
     boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
     std::random_device rd;
     srand(rd());
@@ -28,9 +29,9 @@ MatrixApplication::MatrixApplication(int fps, std::string setServerAddress, std:
 bool MatrixApplication::connect(const std::string &serverAddress, const std::string &serverPort) {
     BOOST_LOG_TRIVIAL(debug) << "[Application] Trying to connect to Server";
 
-    auto ipcCon = std::make_shared<IpcConnection>();
-    ipcCon->connectToServer("matrixserver");
-    connection = ipcCon;
+    // auto ipcCon = std::make_shared<IpcConnection>();
+    // ipcCon->connectToServer("matrixserver");
+    // connection = ipcCon;
     connection = TcpClient::connect(io_context, serverAddress, serverPort);
 //    connection = UnixSocketClient::connect(io_context, "/tmp/matrixserver.sock");
 
@@ -79,12 +80,20 @@ void MatrixApplication::renderToScreens() {
 
 void MatrixApplication::internalLoop() {
     bool running = true;
+    renderSync = true;
     while (running) {
         auto startTime = micros();
         if (appState == AppState::running) {
-            renderSyncMutex.lock();
-            running = loop();
-            renderToScreens();
+            while (!renderSync && appState == AppState::running) {
+                std::this_thread::yield();
+            }
+
+            if (renderSync) {
+                running = loop();
+
+                renderSync = false;
+                renderToScreens();
+            }
         }
         if (appState == AppState::killed) {
             running = false;
@@ -99,6 +108,17 @@ void MatrixApplication::internalLoop() {
         load = 1.0f - ((float) sleepTime / (1000000.0f / (float) fps));
 //        BOOST_LOG_TRIVIAL(warning) << "[Application] rendertime: " << micros()-startTime << " us";
     }
+
+    BOOST_LOG_TRIVIAL(debug) << "[Application] stopping io thread";
+    io_context.stop();
+    ioThread->join();
+
+    BOOST_LOG_TRIVIAL(debug) << "[Application] closing connection";
+    connection->close();
+
+    /* set stop flag so main() can exit */
+    stopped = true;
+    BOOST_LOG_TRIVIAL(debug) << "[Application] main thread exit";
 }
 
 void MatrixApplication::checkConnection() {
@@ -180,7 +200,8 @@ MatrixApplication::handleRequest(std::shared_ptr<UniversalConnection> connection
             break;
         case matrixserver::requestScreenAccess:
         case matrixserver::setScreenFrame:
-            renderSyncMutex.unlock();
+            renderSync = true;
+            break;
         default:
             break;
     }
@@ -227,15 +248,7 @@ bool MatrixApplication::resume() {
 }
 
 void MatrixApplication::stop() {
-    exit(0); //exit immediately because the below thread join won't work all the time TODO:fix this!
-//    if (mainThread != NULL) {
-//        appState = AppState::killed;
-//        mainThread->interrupt();
-//        mainThread->join();
-//        mainThread = NULL;
-//    }
-//    BOOST_LOG_TRIVIAL(debug)  << "app stop successfull";
-//    exit(0);
+    appState = AppState::killed;
 }
 
 int MatrixApplication::getBrightness() {
