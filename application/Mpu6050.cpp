@@ -25,19 +25,20 @@ static Vector2f RotateVector2d(Vector2f input, double degrees)
 }
 }
 
-Mpu6050::Mpu6050() : should_stop(false) {
+Mpu6050::Mpu6050() : should_stop_(false) {
     init();
 }
 
 Mpu6050::~Mpu6050() {
-    should_stop = true;
-    thread_->join();
+    should_stop_ = true;
+    if (thread_->joinable())
+        thread_->join();
 }
 
 Vector3i Mpu6050::getCubeAccIntersect(){
     int maxC;
-    auto scaler = acceleration.cwiseAbs().maxCoeff(&maxC);
-    auto scaledAcc = acceleration * (1.0f/scaler);
+    auto scaler = acceleration_.cwiseAbs().maxCoeff(&maxC);
+    auto scaledAcc = acceleration_ * (1.0f/scaler);
 
     Vector3i accCubePos = (scaledAcc * 33).template cast<int>() + Vector3i(33,33,33);
 
@@ -61,10 +62,13 @@ void Mpu6050::internalLoop(){
     std::ifstream ifs_ay (MPU_ACCEL_Y_PATH, std::ifstream::in);
     std::ifstream ifs_az (MPU_ACCEL_Z_PATH, std::ifstream::in);
 
-    if (!ifs_ax.good() || !ifs_ay.good() || !ifs_az.good())
-        throw std::runtime_error("Cannot open sysfs interface for MPU6050");
+    if (!ifs_ax.good() || !ifs_ay.good() || !ifs_az.good()) {
+        acceleration_ = {0.0f, 0.0f, 0.0f};
+        std::cerr << "Cannot open sysfs interface for MPU6050 at: " << MPU_SYSFS_PATH << std::endl;
+        return;
+    }
 
-    while (!should_stop) {
+    while (!should_stop_) {
         float ax,ay,az;
 
         std::string str_ax, str_ay, str_az;
@@ -85,14 +89,14 @@ void Mpu6050::internalLoop(){
         temp[1] = -ax;
         auto rotated = RotateVector2d(temp, -4.9f);
 
-        acceleration[0] = -rotated[0];
-        acceleration[1] = -az;
-        acceleration[2] = rotated[1];
+        acceleration_[0] = rotated[0];
+        acceleration_[1] = az;
+        acceleration_[2] = rotated[1];
 
-        std::this_thread::sleep_for (std::chrono::milliseconds(200));
+        std::this_thread::sleep_for (std::chrono::milliseconds(20));
     }
 }
 
 Vector3f Mpu6050::getAcceleration(){
-    return acceleration;
+    return acceleration_;
 }

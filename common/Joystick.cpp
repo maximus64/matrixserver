@@ -154,7 +154,6 @@ bool Joystick::getButtonPress(unsigned int num)
 {
     if(num < MAXBUTTONAXISCOUNT){
         if(buttonPress_[num]){
-            buttonPress_[num] = false;
             return true;
         }
     }

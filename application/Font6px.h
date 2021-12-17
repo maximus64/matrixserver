@@ -498,7 +498,19 @@ namespace CharacterBitmaps
 
   };
 
+  const Bitmap1bpp char_plus = {
+    Vector2i(0,2),
+    Vector2i(1,1),
+    Vector2i(1,2),
+    Vector2i(1,3),
+    Vector2i(2,2),
+  };
 
+  const Bitmap1bpp char_minus = {
+    Vector2i(0,2),
+    Vector2i(1,2),
+    Vector2i(2,2),
+  };
 
   inline int getStringWidth(std::string str){
     return str.length() * fontWidth;
@@ -649,6 +661,12 @@ namespace CharacterBitmaps
       break;
       case ',':
         bitmap = CharacterBitmaps::char_comma;
+      break;
+      case '+':
+        bitmap = CharacterBitmaps::char_plus;
+      break;
+      case '-':
+        bitmap = CharacterBitmaps::char_minus;
       break;
       case ' ':
         bitmap.clear();

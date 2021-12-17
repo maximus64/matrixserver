@@ -9,7 +9,7 @@ set(SOURCE_FILES
 
 add_library(server STATIC ${SOURCE_FILES})
 target_link_libraries(server common renderer)
-target_link_libraries(server ${Boost_LIBRARIES})
+target_link_libraries(server ${Boost_LIBRARIES} asound)
 target_include_directories(server PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
 
 target_compile_definitions(server PUBLIC BOOST_LOG_DYN_LINK)

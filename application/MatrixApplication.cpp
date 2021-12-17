@@ -5,7 +5,7 @@
 #include <boost/log/expressions.hpp>
 #include <random>
 
-bool updateBrightness = false;
+bool updateServerConfig = false;
 
 MatrixApplication::MatrixApplication(int fps, std::string setServerAddress, std::string setServerPort) :
         mainThread(),
@@ -67,11 +67,11 @@ void MatrixApplication::renderToScreens() {
         screenData->set_encoding(matrixserver::ScreenData_Encoding_rgb24bbp);
     }
 //    std::cout << "data ready: " << micros() - startTime << "us" << std::endl;
-    if (updateBrightness) {
+    if (updateServerConfig) {
         auto *tempServerConfig = new matrixserver::ServerConfig();
         tempServerConfig->CopyFrom(serverConfig);
         setScreenMessage->set_allocated_serverconfig(tempServerConfig);
-        updateBrightness = false;
+        updateServerConfig = false;
     }
 
     connection->sendMessage(setScreenMessage);
@@ -251,13 +251,30 @@ void MatrixApplication::stop() {
     appState = AppState::killed;
 }
 
+void MatrixApplication::systemShutdown() {
+    auto response = std::make_shared<matrixserver::MatrixServerMessage>();
+    response->set_messagetype(matrixserver::shutDown);
+    response->set_appid(appId);
+    connection->sendMessage(response);
+    stop();
+}
+
+int MatrixApplication::getVolume() {
+    return serverConfig.globalvolume();
+}
+
+void MatrixApplication::setVolume(int vol) {
+    serverConfig.set_globalvolume(vol);
+    updateServerConfig = true;
+}
+
 int MatrixApplication::getBrightness() {
     return serverConfig.globalscreenbrightness();
 }
 
 void MatrixApplication::setBrightness(int setBrightness) {
     serverConfig.set_globalscreenbrightness(setBrightness);
-    updateBrightness = true;
+    updateServerConfig = true;
 }
 
 long MatrixApplication::micros() {

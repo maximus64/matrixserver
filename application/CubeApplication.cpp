@@ -430,15 +430,21 @@ void CubeApplication::fade(float factor) {
 
 
 void CubeApplication::drawImage(ScreenNumber screenNr, Vector2i topLeftPoint, Image &image, Vector2i imageStartPoint) {
-    for (int cols = 0; cols < image.getWidth(); cols++) {
+    Vector2i imageWidthHeight = {image.getWidth(), image.getHeight()};
+    drawImage(screenNr, topLeftPoint, image, imageStartPoint, imageWidthHeight);
+}
+
+void CubeApplication::drawImage(ScreenNumber screenNr, Vector2i topLeftPoint, Image &image, Vector2i imageStartPoint, Vector2i imageWidthHeight) {
+    for (int cols = 0; cols < imageWidthHeight[0]; cols++) {
         if (cols > CUBEMAXINDEX || cols < 0) break;
-        for (int rows = 0; rows < image.getHeight(); rows++) {
+        for (int rows = 0; rows < imageWidthHeight[1]; rows++) {
             if (rows > CUBEMAXINDEX || rows < 0) break;
             setPixel3D(getPointOnScreen(screenNr, Vector2i(cols + topLeftPoint[0], rows + topLeftPoint[1])),
                        image.at(cols + imageStartPoint[0], rows + imageStartPoint[1]));
         }
     }
 }
+
 
 void CubeApplication::drawCircle2D(ScreenNumber screenNr, int x0, int y0, int radius, Color col) {
     int x = radius, y = 0;

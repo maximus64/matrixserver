@@ -5,6 +5,7 @@
 
 #include "Joystick.h"
 #include "BattSensor.h"
+#include "SoundEffect.h"
 
 #include <experimental/filesystem>
 
@@ -18,6 +19,8 @@ public:
 
 private:
     class AppListItem;
+
+    SoundEffect soundfx;
 
     JoystickManager joystickmngr;
     std::vector<AppListItem> appList;

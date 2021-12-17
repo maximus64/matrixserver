@@ -7,11 +7,15 @@
 #include <sys/time.h>
 #include <random>
 #include <chrono>
-
+#include <unistd.h>
+#include <alsa/asoundlib.h>
+#include <alsa/pcm.h>
 #include "Server.h"
 
-std::string defaultApp("/usr/bin/MainMenu 1>/dev/null 2>/dev/null &");
-bool defaultAppStarted = false;
+namespace {
+    static std::string defaultApp("/usr/bin/MainMenu");
+    static bool defaultAppStarted = false;
+}
 
 App *Server::getAppByID(int searchID) {
     for (unsigned int i = 0; i < apps.size(); i++) {
@@ -28,7 +32,8 @@ Server::Server(std::shared_ptr<IRenderer> setRenderer, matrixserver::ServerConfi
         tcpServer(ioContext, boost::asio::ip::tcp::endpoint(boost::asio::ip::tcp::v4(), std::stoi(setServerConfig.serverconnection().serverport()))),
 //        unixServer(ioContext, boost::asio::local::stream_protocol::endpoint("/tmp/matrixserver.sock")),
         ipcServer("matrixserver"),
-        joystickmngr(8) {
+        joystickmngr(8),
+        shutdown_server_(false) {
     boost::log::core::get()->set_filter(boost::log::trivial::severity >= boost::log::trivial::debug);
     renderers.push_back(setRenderer);
     tcpServer.setAcceptCallback(std::bind(&Server::newConnectionCallback, this, std::placeholders::_1));
@@ -37,6 +42,7 @@ Server::Server(std::shared_ptr<IRenderer> setRenderer, matrixserver::ServerConfi
     ioThread = new boost::thread([this]() { this->ioContext.run(); });
     std::random_device rd;
     srand(rd());
+    updateConfig();
 }
 
 void Server::newConnectionCallback(std::shared_ptr<UniversalConnection> connection) {
@@ -86,8 +92,6 @@ void Server::handleRequest(std::shared_ptr<UniversalConnection> connection, std:
                     response->set_status(matrixserver::success);
                     connection->sendMessage(response);
                     auto usTotal = std::chrono::duration_cast<std::chrono::microseconds>(std::chrono::system_clock::now().time_since_epoch()) - usStart;
-                    if (message->has_serverconfig())
-                        renderer->setGlobalBrightness(message->serverconfig().globalscreenbrightness());
                     //BOOST_LOG_TRIVIAL(debug) << "[Server] rendertime: " << usTotal.count() << " us"; // ~ 15ms
                 }
             } else {
@@ -111,9 +115,87 @@ void Server::handleRequest(std::shared_ptr<UniversalConnection> connection, std:
                     return false;
                 }
             }), apps.end());
+            break;
+        case matrixserver::shutDown:
+            BOOST_LOG_TRIVIAL(debug) << "[Server] shutdown request by: " << message->appid();
+            shutdown_server_ = true;
+            break;
         default:
             break;
     }
+
+    if (message->has_serverconfig()) {
+        serverConfig.CopyFrom(message->serverconfig());
+        updateConfig();
+    }
+}
+
+static void SetAlsaMasterVolume(int volume) {
+    long min, max, range;
+    snd_mixer_t *handle;
+    snd_mixer_selem_id_t *sid;
+    const char *card = "default";
+    const char *selem_name = "Master";
+    int x, mute_state;
+    long i;
+    int ret;
+    double vol;
+
+    static bool once;
+
+    /*
+     * HACK HACK HACK: Dirty trick to make alsa create the softvol
+     * volume control interface. Without this hack, the volume control
+     * isn't available upon start up. Need to investigate why?
+     */
+    if (!once) {
+        snd_pcm_t *pcm_h;
+        int err;
+        if ((err = snd_pcm_open(&pcm_h, card, SND_PCM_STREAM_PLAYBACK, 0)) < 0) {
+            printf("Playback open error: %s\n", snd_strerror(err));
+            return;
+        }
+        snd_pcm_close(pcm_h);
+        once = true;
+    }
+
+    snd_mixer_open(&handle, 0);
+    snd_mixer_attach(handle, card);
+    snd_mixer_selem_register(handle, NULL, NULL);
+    snd_mixer_load(handle);
+    
+    snd_mixer_selem_id_alloca(&sid);
+    snd_mixer_selem_id_set_index(sid, 0);
+    snd_mixer_selem_id_set_name(sid, selem_name);
+    snd_mixer_elem_t* elem = snd_mixer_find_selem(handle, sid);
+
+    if (!elem) {
+        BOOST_LOG_TRIVIAL(error) << "Cannot find Master volume ctrl";
+        goto out;
+    }
+
+    snd_mixer_selem_get_playback_volume_range(elem, &min, &max);
+
+    vol = volume / 100.0;
+    range = max - min;
+    vol = (vol * range) + min;
+
+    snd_mixer_selem_set_playback_volume_all(elem, (long)vol);
+
+out:
+    snd_mixer_close(handle);
+}
+
+void Server::updateConfig(void) {
+    for (auto renderer : renderers) {
+        renderer->setGlobalBrightness(serverConfig.globalscreenbrightness());
+    }
+    SetAlsaMasterVolume(serverConfig.globalvolume());
+}
+
+
+matrixserver::ServerConfig &Server::getServerConfig(void) {
+    return serverConfig;
 }
 
 bool Server::tick() {
@@ -129,8 +211,22 @@ bool Server::tick() {
 
     if (apps.size() == 0 && !defaultAppStarted) {
         BOOST_LOG_TRIVIAL(debug) << "starting default app" << std::endl;
-        system(defaultApp.data());
-        defaultAppStarted = true;
+        std::vector<char*> args;
+        args.push_back(&defaultApp[0]);
+        args.push_back(0);
+        pid_t child_pid = fork();
+        if (child_pid == 0) {
+            /* child */
+            ::execv(args[0], &(args[0]));
+            ::perror("execv");
+            ::exit(-1);
+        }
+        else if (child_pid == -1) {
+            ::perror("fork");
+        }
+        else {
+            defaultAppStarted = true;
+        }
     }
     if (apps.size() > 0) {
         defaultAppStarted = false;
@@ -150,9 +246,17 @@ bool Server::tick() {
         }
         return returnVal;
     }), connections.end());
+
+    if (shutdown_server_) {
+        ioContext.stop();
+        ioThread->join();
+        return false;
+    }
+
     return true;
 }
 
 void Server::addRenderer(std::shared_ptr<IRenderer> newRenderer) {
     renderers.push_back(newRenderer);
+    updateConfig();
 }

@@ -122,8 +122,8 @@ MatrixApplicationStandalone::MatrixApplicationStandalone(int fps, std::string se
 
 void MatrixApplicationStandalone::renderToScreens() {
     renderSyncMutex.lock();
-    renderSyncMutex.unlock();
     renderer->render();
+    renderSyncMutex.unlock();
 //    std::thread([this](){renderer->render();}).detach();
 }
 

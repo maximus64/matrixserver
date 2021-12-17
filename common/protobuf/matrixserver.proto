@@ -25,6 +25,7 @@ enum MessageType {
     appKill = 8;
     imuData = 9;
     joystickData = 10;
+    shutDown = 11;
 }
 
 enum Status{
@@ -89,6 +90,7 @@ message ServerConfig {
     int32 globalScreenBrightness = 3;
     Connection serverConnection = 4;
     string serverName = 5;
+    int32 globalVolume = 6;
 }
 
 message Connection {

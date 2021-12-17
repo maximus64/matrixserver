@@ -14,11 +14,11 @@ public:
     Eigen::Vector3i getCubeAccIntersect();
     Eigen::Vector3f getAcceleration();
 private:
-    bool should_stop;
+    bool should_stop_;
     void startRefreshThread();
     void internalLoop();
     std::unique_ptr<std::thread> thread_;
-    Eigen::Vector3f acceleration;
+    Eigen::Vector3f acceleration_;
 };
 
 

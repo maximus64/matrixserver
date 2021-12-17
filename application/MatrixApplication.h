@@ -51,6 +51,13 @@ public:
 
     void setBrightness(int setBrightness);
 
+    int getVolume();
+
+    void setVolume(int vol);
+
+    void systemShutdown();
+
+
     virtual bool loop() = 0;
 
     bool isStopped() {

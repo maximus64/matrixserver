@@ -2,9 +2,11 @@ project(MainMenu)
 
 set(MAINSRC
         main.cpp
-        mainmenu.cpp)
+        mainmenu.cpp
+        SoundEffect.cpp)
 
 set(MAINLIBS
+        asound
         matrixapplication
         common
         stdc++fs

@@ -9,6 +9,8 @@ class BattSensor {
         ~BattSensor();
         float getVoltage();
         float getCurrent();
+        int getPercentage();
+        bool isCharging();
 
     private:
         struct Impl;

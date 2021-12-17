@@ -59,12 +59,13 @@ void Color::fromHSV(float h, float s, float v) {
         r_ = g_ = b_ = v * UINT8_MAX;
         return;
     }
-    h /= 60;            // sector 0 to 5
+    h = std::fmod(h, 360.0);
+    h /= 60.0;            // sector 0 to 5
     i = floor(h);
     f = h - i;            // factorial part of h
-    p = v * (1 - s);
-    q = v * (1 - s * f);
-    t = v * (1 - s * (1 - f));
+    p = v * (1.0f - s);
+    q = v * (1.0f - s * f);
+    t = v * (1.0f - s * (1.0f - f));
     switch (i) {
         case 0:
             r_ = v * UINT8_MAX;

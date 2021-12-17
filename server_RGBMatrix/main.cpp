@@ -11,9 +11,15 @@
 #include <matrixserver.pb.h>
 #include <google/protobuf/util/json_util.h>
 
-void createDefaultCubeConfig(matrixserver::ServerConfig &serverConfig) {
+#define DEFAULT_CONFIG_PATH "/etc/matrixserver.conf"
+
+static bool should_stop;
+
+static void createDefaultCubeConfig(matrixserver::ServerConfig &serverConfig) {
+    const int screen_map[6] = {2, 3, 0, 1, 4, 5};
     serverConfig.Clear();
     serverConfig.set_globalscreenbrightness(100);
+    serverConfig.set_globalvolume(100);
     serverConfig.set_servername("matrixserver");
     matrixserver::Connection *serverConnection = new matrixserver::Connection();
     serverConnection->set_serveraddress("127.0.0.1");
@@ -27,42 +33,62 @@ void createDefaultCubeConfig(matrixserver::ServerConfig &serverConfig) {
         screenInfo->set_available(true);
         screenInfo->set_height(64);
         screenInfo->set_width(64);
-        screenInfo->set_screenorientation((matrixserver::ScreenInfo_ScreenOrientation) (i + 1));
+        screenInfo->set_screenorientation((matrixserver::ScreenInfo_ScreenOrientation) (screen_map[i] + 1));
     }
 }
 
-void handleServerConfig(int argc, char **argv, matrixserver::ServerConfig &serverConfig) {
-    if (argc == 2) {
-        BOOST_LOG_TRIVIAL(debug) << "[Server] Trying to read config from: " << argv[1];
-        std::ifstream configFileReadStream(argv[1]);
-        std::stringstream buffer;
-        buffer << configFileReadStream.rdbuf();
-        if (google::protobuf::util::JsonStringToMessage(buffer.str(), &serverConfig).ok()) {
-            BOOST_LOG_TRIVIAL(debug) << "[Server] ServerConfig successfully read from: " << argv[1];
-        } else {
-            BOOST_LOG_TRIVIAL(debug) << "[Server] ServerConfig read failed from: " << argv[1];
-        }
-    } else {
-        BOOST_LOG_TRIVIAL(debug) << "[Server] creating default config";
-        createDefaultCubeConfig(serverConfig);
-        std::string configString;
-        google::protobuf::util::JsonOptions jsonOptions;
-        jsonOptions.add_whitespace = true;
-        jsonOptions.always_print_primitive_fields = true;
-        if (google::protobuf::util::MessageToJsonString(serverConfig, &configString, jsonOptions).ok()) {
-            std::string configFileName = "matrixServerConfig.json";
-            std::ofstream configFileWriteStream(configFileName, std::ios_base::trunc);
-            configFileWriteStream << configString;
-            configFileWriteStream.close();
-            BOOST_LOG_TRIVIAL(debug) << "[Server] written default config to " << configFileName;
-        }
-
+static void saveServerConfig(const std::string &configFileName, matrixserver::ServerConfig &serverConfig) {
+    BOOST_LOG_TRIVIAL(debug) << "[Server] saving server config";
+    std::string configString;
+    google::protobuf::util::JsonOptions jsonOptions;
+    jsonOptions.add_whitespace = true;
+    jsonOptions.always_print_primitive_fields = true;
+    if (!google::protobuf::util::MessageToJsonString(serverConfig, &configString, jsonOptions).ok()) {
+        BOOST_LOG_TRIVIAL(debug) << "[Server] fail to convert config to json:";
+        return;
     }
+
+    std::ofstream configFileWriteStream(configFileName, std::ios_base::trunc);
+    if (!configFileWriteStream.good()) {
+        BOOST_LOG_TRIVIAL(debug) << "[Server] cannot save config to: " << configFileName;
+        return;
+    }
+    configFileWriteStream << configString;
+    BOOST_LOG_TRIVIAL(debug) << "[Server] config written to " << configFileName;
+}
+
+static void signalHandler( int signum ) {
+    BOOST_LOG_TRIVIAL(debug) << "Interrupt signal (" << signum << ") received.\n";
+
+    should_stop = true;
 }
 
 int main(int argc, char **argv) {
+    std::string config_path;
     matrixserver::ServerConfig serverConfig;
-    handleServerConfig(argc, argv, serverConfig);
+
+    if (argc == 2)
+        config_path = std::string(argv[1]);
+    else
+        config_path = std::string(DEFAULT_CONFIG_PATH);
+
+    BOOST_LOG_TRIVIAL(debug) << "[Server] Trying to read config from: " << config_path;
+    std::ifstream configFileReadStream(config_path);
+    std::stringstream buffer;
+    if (configFileReadStream.good()) {
+        buffer << configFileReadStream.rdbuf();
+        if (google::protobuf::util::JsonStringToMessage(buffer.str(), &serverConfig).ok()) {
+            BOOST_LOG_TRIVIAL(debug) << "[Server] ServerConfig successfully read from: " << config_path;
+        } else {
+            BOOST_LOG_TRIVIAL(debug) << "[Server] ServerConfig read failed from: " << config_path;
+            BOOST_LOG_TRIVIAL(debug) << "[Server] use default config";
+            createDefaultCubeConfig(serverConfig);
+        }
+    }
+    else {
+        BOOST_LOG_TRIVIAL(debug) << "[Server] use default config";
+        createDefaultCubeConfig(serverConfig);
+    }
 
     BOOST_LOG_TRIVIAL(info) << "ServerConfig: " << std::endl << serverConfig.DebugString() << std::endl;
 
@@ -93,12 +119,12 @@ int main(int argc, char **argv) {
             case matrixserver::ScreenInfo_ScreenOrientation::ScreenInfo_ScreenOrientation_top :
                 screen->setOffsetX(0);
                 screen->setOffsetY(0);
-                screen->setRotation(Rotation::rot270);
+                screen->setRotation(Rotation::rot90);
                 break;
             case matrixserver::ScreenInfo_ScreenOrientation::ScreenInfo_ScreenOrientation_bottom :
                 screen->setOffsetX(2);
                 screen->setOffsetY(0);
-                screen->setRotation(Rotation::rot270);
+                screen->setRotation(Rotation::rot90);
                 break;
             default:
                 break;
@@ -106,15 +132,22 @@ int main(int argc, char **argv) {
         screens.push_back(screen);
     }
 
-
     auto rendererRGBMatrix = std::make_shared<RGBMatrixRenderer>(screens);
-//    auto rendererSimulator = std::make_shared<SimulatorRenderer>(screens, "10.42.42.69");
-
     Server server(rendererRGBMatrix, serverConfig);
-//    server.addRenderer(rendererSimulator);
 
-    while (server.tick()) {
+    ::signal(SIGINT, signalHandler);
+
+    while (!should_stop && server.tick()) {
         sleep(1);
     };
+
+    saveServerConfig(config_path, serverConfig);
+
+    if (!should_stop) {
+        /* Not from interrupt handler, must be powerof request from server */
+        /* Send SIGUSR2 signal to init process to initiate system shutdown */
+        ::kill(1, SIGUSR2);
+    }
+
     return 0;
 }

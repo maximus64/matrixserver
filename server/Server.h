@@ -32,7 +32,11 @@ public:
 
     App * getAppByID(int searchID);
 
+    matrixserver::ServerConfig &getServerConfig(void);
+
 private:
+    void updateConfig(void);
+
     std::vector<App> apps;
     std::vector<std::shared_ptr<IRenderer>> renderers;
     boost::asio::io_service ioContext;
@@ -43,6 +47,8 @@ private:
     matrixserver::ServerConfig & serverConfig;
     std::vector<std::shared_ptr<UniversalConnection>> connections;
     JoystickManager joystickmngr;
+
+    bool shutdown_server_;
 };
 
 
